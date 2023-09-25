@@ -1,0 +1,60 @@
+! CALCULATION OF POTENTIAL AND ACTUAL EVAPOTRANSPIRATION AND COMPARISON
+! OF MEASURED AND ESTIMATED SOIL MOISTURE CONTENT.
+! REQUIRED VARIABLES ARE NUMBER OF OBSERVATIONS (NOB), SOIL MOISTURE AT
+! FIELD CAPACITY (SMFC), SOIL MOISTURE AT WILTING POINT (SMWP), TEMPERATURE
+! IN DEGREES F (TT), RELATIVE HUMIDITY IN PERCENT (RH), PRECIPITATION IN
+! MM (P), RUNOFF IN MM (RO), AND MEASURED SOIL MOISTURE (SMM).
+
+      DIMENSION TT(200) , RH(200), P(200), SMM(200), SMP(200), RO(200), 
+     9   PE(200), AE(200), MT(13)
+      REAL MR
+      NST = 1
+      READ (5,1) NOB, SMFC, SMWP
+   1  FORMAT (I10, 2F10.2 )
+   2  FORMAT (13A6)
+      READ ( 5, 2 ) MT
+      READ (5,MT) (TT(I) , I = I,NOB)
+      READ (5,MT) (RH(I) , I = I,NOB)
+      READ (5,MT) (P(I) , I = I,NOB)
+      READ (5,MT) (RO(I) , I = I,NOB)
+      READ (5,MT) (SMM(I) , I = I,NOB)
+
+! CALCULATION OF POTENTIAL EVAPOTRANSPIRATION (EAGLEMAN, 1967)
+
+      SMP (NST) = SMM(NST)
+      DO 16 I = NST,NOB
+      TEMPA = 0.5555555556 * ( TT( I ) - 32. ) + 273.16
+      IF ( TT ( I ) .GT. 31 . ) GO TO 11
+! SATURATION VAPOR PRESSURE COMPUTED BY TETONS METHOD.
+      EXP = ( 21.8745584 * ( TEMPA - 273.16 ) ) / ( TEMPA - 7.66 )
+      ES = 6.1078 * ( 2.71828 ** EXP )
+      PE( I ) = 0.0175 * ES * ( ( 100. - RH ( I ) ) ** .5 )
+      GO TO 12
+  11  EXP=(17.2693882*(TEMPA-273.16))/(TEMPA-35.86)
+      ES = 6.1078*(2.71828**EXP)
+      CR = 0.200 + 0.0133 * TT(I)
+      IF ( TT ( I ) .GE. 70. ) CR = 1.130
+      PE( I ) = 0.0292 * CR * ES * ( ( 100. - RH( I ) ) ** . 5 )
+  12  CONTINUE
+
+C  CALCULATION OF ACTUAL EVAPOTRANSPIRATION
+      A = -0.050 + 0.732 / PE( I )
+      B = 4.97 - 0.661 * PE( I )
+      C = - 8.57 + 1.56 * PE( I )
+      D = 4.35 - 0.880 * PE( I )
+      MR = ( ( SMP( I ) - SMWP ) / ( SMFC - SMWP))
+      IF (MR .LT. 0.) MR = 0.
+  15  RET = A + B * MR + C * MR ** 2 + D * MR ** 3
+      IF ( RET .GT. 1.0) RET = 1.0
+      IF (RET .LT. 0.05 ) RET = 0.05
+      AE( I ) = RET * PE( I )
+      IPO = I + 1
+  16  SMP( IPO ) = SMP ( I ) - AE( I ) + P( I ) - RO( I )
+      WRITE( 6 , 1 7 )
+  17  FORMAT ( 1H1 , 1X , 3HDAY , 13X , 2HPE , 14X , 2HAE , 10X, 
+     1 6HPRECIP, 10X,
+     2 6HRUNOFF,7X, 9HSM, MEAS., 7X, 9HSM, PRED. // )
+      WRITE( 6, 19 ) (I,PE(I),AE(I),P(I),RO(I),SMM(I),SMP(I),I=NST,NOB)
+  19  FORMAT ( I4, 6F16.2 )
+      STOP
+      END 
